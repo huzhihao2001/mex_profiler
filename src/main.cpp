@@ -9,6 +9,7 @@
 
 int main() {
     const int n = 5;  // 调用5次
+    const char* matfile = "../data/test.mat";
 
     // 使用智能指针管理MAT文件资源（自定义删除器）
     auto mat_closer = [](MATFile* p) { if (p) matClose(p); };
@@ -18,7 +19,6 @@ int main() {
     std::cout << "读取数据：";
     auto start = std::chrono::steady_clock::now();
 
-    const char* matfile = "../data/test.mat";
     MatFilePtr pmatfile(matOpen(matfile, "r"), mat_closer);
     if (!pmatfile) {
         std::cerr << "Error opening file " << matfile << std::endl;
