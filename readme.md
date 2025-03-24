@@ -26,6 +26,7 @@ mex_profiler/
 
    ```bash
    git clone https://github.com/huzhihao2001/mex_profiler.git
+   cd mex_profiler
    ```
 
 2. **配置环境变量（Windows）**
@@ -77,6 +78,13 @@ mex_profiler/
 4. **重构项目并设置测试入口**
 
    重新进行CMake编译后打开`build\mex_profiler.sln`,将`mex_profiler`设为启动项目后即可开始性能测试。
+
+
+
+## 注意事项 ⚠️
+
+- 目前尚未测试包含第三方库（如Eigen库）的情况，使用时需自行验证兼容性。
+- 虽然项目标明了MATLAB R2024a，但较老的MATLAB版本可能也能使用，建议使用更新的MATLAB以确保兼容性。
 
 
 
