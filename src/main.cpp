@@ -8,83 +8,87 @@
 #include "mex.h"
 
 int main() {
-    const int n = 5;  // µ÷ÓÃ5´Î
-    const char* matfile = "../data/test.mat";
+	const int n = 5;  // è°ƒç”¨5æ¬¡
+	std::string filename = "test.mat";
+	std::string matfile = "../data/"+filename;
+	// ä½¿ç”¨æ™ºèƒ½æŒ‡é’ˆç®¡ç†MATæ–‡ä»¶èµ„æºï¼ˆè‡ªå®šä¹‰åˆ é™¤å™¨ï¼‰
+	auto mat_closer = [](MATFile* p) { if (p) matClose(p); };
+	using MatFilePtr = std::unique_ptr<MATFile, decltype(mat_closer)>;
+	auto flag = matOpen(matfile.c_str(), "r");
+	if (!flag) {
+		matfile = "../" + matfile;
+		flag = matOpen(matfile.c_str(), "r");
+		if (!flag) {
+			std::cerr << "Error opening file " << filename << std::endl;
+			exit(EXIT_FAILURE);
+		}
+	}
+	// è¯»å–æ•°æ®
+	std::cout << "è¯»å–æ•°æ®ï¼š" << filename << "\t";
+	auto start = std::chrono::steady_clock::now();
 
-    // Ê¹ÓÃÖÇÄÜÖ¸Õë¹ÜÀíMATÎÄ¼ş×ÊÔ´£¨×Ô¶¨ÒåÉ¾³ıÆ÷£©
-    auto mat_closer = [](MATFile* p) { if (p) matClose(p); };
-    using MatFilePtr = std::unique_ptr<MATFile, decltype(mat_closer)>;
+	MatFilePtr pmatfile(flag, mat_closer);
 
-    // ¶ÁÈ¡Êı¾İ
-    std::cout << "¶ÁÈ¡Êı¾İ£º";
-    auto start = std::chrono::steady_clock::now();
+	// ä½¿ç”¨æ™ºèƒ½æŒ‡é’ˆç®¡ç†mxArrayèµ„æº
+	using MxArrayDeleter = void(*)(mxArray*);
+	using MxArrayPtr = std::unique_ptr<mxArray, MxArrayDeleter>;
 
-    MatFilePtr pmatfile(matOpen(matfile, "r"), mat_closer);
-    if (!pmatfile) {
-        std::cerr << "Error opening file " << matfile << std::endl;
-        exit(EXIT_FAILURE);
-    }
+	MxArrayPtr varargin(matGetVariable(pmatfile.get(), "varargin"), mxDestroyArray);
+	if (!varargin) {
+		std::cerr << "æ•°æ®æœ‰é—®é¢˜" << std::endl;
+		exit(EXIT_FAILURE);
+	}
 
-    // Ê¹ÓÃÖÇÄÜÖ¸Õë¹ÜÀímxArray×ÊÔ´
-    using MxArrayDeleter = void(*)(mxArray*);
-    using MxArrayPtr = std::unique_ptr<mxArray, MxArrayDeleter>;
+	// éªŒè¯æ•°æ®å®Œæ•´æ€§
+	MxArrayPtr nrhs_arr(matGetVariable(pmatfile.get(), "nrhs"), mxDestroyArray);
+	MxArrayPtr nlhs_arr(matGetVariable(pmatfile.get(), "nlhs"), mxDestroyArray);
 
-    MxArrayPtr varargin(matGetVariable(pmatfile.get(), "varargin"), mxDestroyArray);
-    if (!varargin) {
-        std::cerr << "Êı¾İÓĞÎÊÌâ" << std::endl;
-        exit(EXIT_FAILURE);
-    }
+	const int nrhs = mxGetScalar(nrhs_arr.get());
+	const int nlhs = mxGetScalar(nlhs_arr.get());
 
-    // ÑéÖ¤Êı¾İÍêÕûĞÔ
-    MxArrayPtr nrhs_arr(matGetVariable(pmatfile.get(), "nrhs"), mxDestroyArray);
-    MxArrayPtr nlhs_arr(matGetVariable(pmatfile.get(), "nlhs"), mxDestroyArray);
+	if (!nrhs || !nlhs || mxGetNumberOfElements(varargin.get()) != nrhs) {
+		std::cerr << "æ•°æ®æœ‰é—®é¢˜" << std::endl;
+		exit(EXIT_FAILURE);
+	}
 
-    const int nrhs = mxGetScalar(nrhs_arr.get());
-    const int nlhs = mxGetScalar(nlhs_arr.get());
+	// ä½¿ç”¨vectorç®¡ç†æŒ‡é’ˆæ•°ç»„ï¼ˆè‡ªåŠ¨é‡Šæ”¾ï¼‰
+	std::vector<MxArrayPtr> plhs;
+	plhs.reserve(nlhs);
+	for (int i = 0; i < nlhs; ++i) {
+		plhs.emplace_back(nullptr, mxDestroyArray);
+	}
 
-    if (!nrhs || !nlhs || mxGetNumberOfElements(varargin.get()) != nrhs) {
-        std::cerr << "Êı¾İÓĞÎÊÌâ" << std::endl;
-        exit(EXIT_FAILURE);
-    }
+	// æ³¨æ„ï¼šè¿™é‡Œprhsåªæ˜¯å€Ÿç”¨vararginçš„æ•°æ®ï¼Œä¸æ‹¥æœ‰æ‰€æœ‰æƒ
+	std::vector<mxArray*> prhs(nrhs);
+	for (int i = 0; i < nrhs; ++i) {
+		prhs[i] = mxGetCell(varargin.get(), i);
+	}
 
-    // Ê¹ÓÃvector¹ÜÀíÖ¸ÕëÊı×é£¨×Ô¶¯ÊÍ·Å£©
-    std::vector<MxArrayPtr> plhs;
-    plhs.reserve(nlhs);
-    for (int i = 0; i < nlhs; ++i) {
-        plhs.emplace_back(nullptr, mxDestroyArray);
-    }
+	auto end = std::chrono::steady_clock::now();
+	std::cout << "è€—æ—¶" << std::chrono::duration<double, std::milli>(end - start).count() << "æ¯«ç§’" << std::endl;
 
-    // ×¢Òâ£ºÕâÀïprhsÖ»ÊÇ½èÓÃvararginµÄÊı¾İ£¬²»ÓµÓĞËùÓĞÈ¨
-    std::vector<mxArray*> prhs(nrhs);
-    for (int i = 0; i < nrhs; ++i) {
-        prhs[i] = mxGetCell(varargin.get(), i);
-    }
+	// æµ‹è¯•æ—¶é—´
+	std::cout << "æµ‹è¯•æ—¶é—´ï¼š" << std::endl;
+	for (int i = 0; i < n; ++i) {
+		start = std::chrono::steady_clock::now();
 
-    auto end = std::chrono::steady_clock::now();
-    std::cout << "ºÄÊ±" << std::chrono::duration<double, std::milli>(end - start).count() << "ºÁÃë" << std::endl;
+		// è½¬æ¢æ™ºèƒ½æŒ‡é’ˆåˆ°åŸå§‹æŒ‡é’ˆæ•°ç»„
+		std::vector<mxArray*> plhs_raw;
+		plhs_raw.reserve(plhs.size());
+		for (auto& p : plhs) {
+			plhs_raw.push_back(p.get());
+		}
 
-    // ²âÊÔÊ±¼ä
-    std::cout << "²âÊÔÊ±¼ä£º" << std::endl;
-    for (int i = 0; i < n; ++i) {
-        start = std::chrono::steady_clock::now();
+		mexFunction(nlhs, plhs_raw.data(), nrhs, const_cast<const mxArray**>(prhs.data()));
 
-        // ×ª»»ÖÇÄÜÖ¸Õëµ½Ô­Ê¼Ö¸ÕëÊı×é
-        std::vector<mxArray*> plhs_raw;
-        plhs_raw.reserve(plhs.size());
-        for (auto& p : plhs) {
-            plhs_raw.push_back(p.get());
-        }
+		// æ¥ç®¡mexFunctionåˆ†é…çš„å†…å­˜
+		for (size_t j = 0; j < plhs.size(); ++j) {
+			plhs[j].reset(plhs_raw[j]);
+		}
 
-        mexFunction(nlhs, plhs_raw.data(), nrhs, const_cast<const mxArray**>(prhs.data()));
-
-        // ½Ó¹ÜmexFunction·ÖÅäµÄÄÚ´æ
-        for (size_t j = 0; j < plhs.size(); ++j) {
-            plhs[j].reset(plhs_raw[j]);
-        }
-
-        end = std::chrono::steady_clock::now();
-        std::cout << "ÔËĞĞ´ÎÊı:" << i + 1 << "/" << n << ",ºÄÊ±"
-            << std::chrono::duration<double, std::milli>(end - start).count()
-            << "ºÁÃë" << std::endl;
-    }
+		end = std::chrono::steady_clock::now();
+		std::cout << "è¿è¡Œæ¬¡æ•°:" << i + 1 << "/" << n << ",è€—æ—¶"
+			<< std::chrono::duration<double, std::milli>(end - start).count()
+			<< "æ¯«ç§’" << std::endl;
+	}
 }
