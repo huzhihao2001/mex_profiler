@@ -3,7 +3,7 @@
 
 一个用于在visual studio中测试MATLAB Mex函数性能的轻量级框架。支持OpenMP加速与内置性能分析，解决MATLAB探查器无法直接分析Mex函数内部性能的问题。
 
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen) ![OpenMP](https://img.shields.io/badge/OpenMP-enabled-blue) ![MATLAB R2024a](https://img.shields.io/badge/MATLAB-R2024a-orange)
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen) ![OpenMP](https://img.shields.io/badge/OpenMP-enabled-blue) ![MATLAB R2024a](https://img.shields.io/badge/MATLAB-R2024a-orange)[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/huzhihao2001/mex_profiler)
 
 ## 项目结构📂
 
